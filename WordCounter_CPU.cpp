@@ -4,8 +4,7 @@
 #include <cstring>
 #include <ctime>
 #include <queue>
-#include <direct.h>
-#include <unistd.h>
+#include <dirent.h>
 #include <pthread.h>
 
 #define BUFFER_SIZE 250000000
@@ -19,12 +18,12 @@ int position = 0;
 void initPath(char *DirName)
 {
     DIR *dir;
-    struct direct *ptr;
+    struct dirent *ptr;
 
-    if(dir = opendir(DirName) == NULL)
+    if((dir = opendir(DirName)) == NULL)
     {
         cerr<<"Fail to open directory"<<endl;
-        return -1;
+        exit(-1);
     }
 
     while((ptr = readdir(dir)) != NULL)
@@ -34,13 +33,15 @@ void initPath(char *DirName)
         else if(ptr->d_type == 8)
         {
             char *temp = (char*)malloc(sizeof(char)*40);
+            memset(temp, 0, 40);
             strcat(temp, DirName);
             strcat(temp, ptr->d_name);
             string path = temp;
             FilePath.push(path);
         }
     }
-    close(dir);
+
+    closedir(dir);
 }
 
 void *removePunct(char *str)
@@ -58,13 +59,14 @@ void *Counter(void *arg)
 {
     char *KeyWord = (char*)arg;
     int wordLength = strlen(KeyWord);
-    int numWords = 0;
+    int *numWords = (int*)malloc(sizeof(int));
     fstream ifs;
     pthread_mutex_lock(&queueMutex);
 
     while(!FilePath.empty())
     {
         char *path = (char*)malloc(sizeof(char)*40);
+        //memset(path, 0, 40);
         strcpy(path, FilePath.front().c_str());
         FilePath.pop();
 
@@ -73,7 +75,7 @@ void *Counter(void *arg)
         if(!ifs.is_open())
         {
             cerr<<"Fail to open file"<<endl;
-            return -1;
+            exit(-1);
         }
         //get file's length
         ifs.seekg(0, ifs.end);
@@ -91,16 +93,16 @@ void *Counter(void *arg)
 
         //count keyword
         char *pch = file;
-        while(*pch)
+        while(pch != NULL)
         {
             pch = strstr(pch, KeyWord);
             if(pch != NULL)
             {
-                numWords++;
+                (*numWords)++;
                 pch += wordLength;
             }
         }
-
+        free(file);
         //lock to handle next file
         pthread_mutex_lock(&queueMutex);
     }
@@ -108,9 +110,10 @@ void *Counter(void *arg)
     pthread_mutex_unlock(&queueMutex);
 
     //return number of words
-    return (void*)&numWords;
+    return (void*)numWords;
 }
 
+/**
 void *Counter_BigFile(void *arg)
 {
     char *KeyWord = (char*)arg;
@@ -121,6 +124,7 @@ void *Counter_BigFile(void *arg)
 
     return (void*)&numWords;
 }
+**/
 
 int main(int argc, char *argv[])
 {
