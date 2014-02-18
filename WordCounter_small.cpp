@@ -7,13 +7,10 @@
 #include <dirent.h>
 #include <pthread.h>
 
-#define BUFFER_SIZE 250000000
-
 using namespace std;
 
 queue<string> FilePath;
 pthread_mutex_t queueMutex;
-int position = 0;
 
 void initPath(char *DirName)
 {
@@ -60,13 +57,14 @@ void *Counter(void *arg)
     char *KeyWord = (char*)arg;
     int wordLength = strlen(KeyWord);
     int *numWords = (int*)malloc(sizeof(int));
+	*numWords = 0;
     fstream ifs;
     pthread_mutex_lock(&queueMutex);
 
     while(!FilePath.empty())
     {
-        char *path = (char*)malloc(sizeof(char)*40);
-        //memset(path, 0, 40);
+        char *path = (char*)malloc(sizeof(char)*100);
+        memset(path, 0, 100);
         strcpy(path, FilePath.front().c_str());
         FilePath.pop();
 
@@ -112,19 +110,6 @@ void *Counter(void *arg)
     //return number of words
     return (void*)numWords;
 }
-
-/**
-void *Counter_BigFile(void *arg)
-{
-    char *KeyWord = (char*)arg;
-    int wordLength = strlen(KeyWord);
-    int numWords = 0;
-    fstream ifs;
-
-
-    return (void*)&numWords;
-}
-**/
 
 int main(int argc, char *argv[])
 {
