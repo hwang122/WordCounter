@@ -17,7 +17,8 @@ typedef struct fileArg
 	ifstream &ifs;
 } File;
 
-void *removePunct(char *str)
+/**
+void removePunct(char *str)
 {
     int i, j;
     for (i = j = 0; str[i] != '\0'; i++) {
@@ -27,6 +28,7 @@ void *removePunct(char *str)
     }
     str[j] = '\0';
 }
+**/
 
 void *Counter(void *arg)
 {
@@ -92,7 +94,7 @@ int main(int argc, char *argv[])
 	int numWords = 0;
 
 	//remove punctuation character from keyword
-	removePunct(Keyword);
+	//removePunct(Keyword);
 	
 	//set arguments
 	File f;
