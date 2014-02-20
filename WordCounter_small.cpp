@@ -14,6 +14,7 @@ queue<string> FilePath;
 pthread_mutex_t queueMutex;
 typedef unordered_map<string,int> wordsMap;
 
+
 wordsMap merge(wordsMap wordsCount[], int size)
 {
 	wordsMap temp(wordsCount[0]);
@@ -56,26 +57,9 @@ void initPath(char *DirName)
     closedir(dir);
 }
 
-/**
-void removePunct(char *str)
-{
-    int i, j;
-    for (i = j = 0; str[i] != '\0'; i++) {
-        if (!ispunct(str[i])) {
-            str[j++] = str[i];
-        }
-    }
-    str[j] = '\0';
-}
-**/
-
 void *Counter(void *arg)
 {
-    char *KeyWord = (char*)arg;
-    int wordLength = strlen(KeyWord);
-    //int *numWords = (int*)malloc(sizeof(int));
-	//*numWords = 0;
-	wordsMap tempMap;
+	wordsMap *tempMap = (wordsMap *)arg;
     fstream ifs;
     pthread_mutex_lock(&queueMutex);
 
@@ -84,6 +68,7 @@ void *Counter(void *arg)
         char *path = (char*)malloc(sizeof(char)*100);
         memset(path, 0, 100);
         strcpy(path, FilePath.front().c_str());
+        //cout<<path<<endl;
         FilePath.pop();
 
         ifs.open(path, ifstream::in);
@@ -98,7 +83,7 @@ void *Counter(void *arg)
         int length = ifs.tellg();
         ifs.seekg(0, ifs.beg);
 
-        char *file = (char*)malloc(sizeof(char)*length);
+        char *file = (char*)malloc(sizeof(char)*(length+1));
         ifs.read(file, length);
 
         ifs.close();
@@ -109,82 +94,81 @@ void *Counter(void *arg)
 
         //count keyword
 		char *pch;
-		char *delimiter = " ?¡±;<>~`!@#^&*()_+=/\:;{}[]|";
-		wordsMap::iterator found;
-		pch = strtok(file, delimiter);
+        char *last;
+        wordsMap::iterator found;
+		const char *delimiter;
+        delimiter = " ,?\":;<>~`!@#^&*()_+=/\\{}[]|\n\r\v\f";
+        //delimiter = " ,.";
+
+        //strtok is not thread safe!
+		pch = strtok_r(file, delimiter, &last);
+        //pch = strtok(file, delimiter);
 		while(pch != NULL)
 		{
-			found = tempMap.find(string(pch));		
-			if(found == tempMap.end())
-			{
-				//not found
-				tempMap.insert(make_pair<string, int>(string(pch), 1));
-			}
-			else
-			{
-				//found
-				found->second++;
-			}
-			pch = strtok(NULL, delimiter);
-		}
-		/**
-        char *pch = file;
-        while(pch != NULL)
-        {
-            pch = strstr(pch, KeyWord);
-            if(pch != NULL)
+            found = tempMap->find(pch);
+
+            if(found == tempMap->end())
             {
-                (*numWords)++;
-                pch += wordLength;
+                //not found
+                pair<string, int> tempPair (pch, 1);
+                tempMap->insert(tempPair);
             }
-        }
-		**/
+            else
+            {
+                //found
+                found->second++;
+            }
+
+            pch = strtok_r(NULL, delimiter, &last);
+            //pch = strtok(NULL, delimiter);
+		}
+
+        //wordsMap::iterator got = tempMap->find("hauled");
+        //if(got != tempMap->end())
+        //    cout<<"In "<<path<<", hauled number: "<<got->second<<endl;
         free(file);
+        free(path);
         //lock to handle next file
         pthread_mutex_lock(&queueMutex);
     }
     //all files have been handled, unlock
     pthread_mutex_unlock(&queueMutex);
-
-    //return number of words
-    return &tempMap;
 }
 
 int main(int argc, char *argv[])
 {
 	//get arguments from command line
     if(argc != 4){
-        cout<<"Usage: "<<argv[0]<<" [directory name] [searching words] \
-            [number of thread]"<<endl;
+        cout<<"Usage: "<<argv[0]<<" [directory name] [searching word] [number of threads]"<<endl;
         return -1;
     }
 
     char *DirName = argv[1];
 	char *Keyword = argv[2];
 	int numThread = atoi(argv[3]);
+    
 	pthread_t tid[numThread];
 	pthread_mutex_init(&queueMutex, NULL);
 	//words number
 	wordsMap res[numThread];
-	//int *res[numThread];
-	int numWords = 0;
-
-	//remove punctuation character from keyword
-	//removePunct(Keyword);
 
     //init file queue
     initPath(DirName);
 
     for(int i = 0; i < numThread; i++)
-        pthread_create(&tid[i], NULL, Counter, (void*)Keyword);
+        pthread_create(&tid[i], NULL, Counter, &res[i]);
 
     for(int i = 0; i < numThread; i++)
-        pthread_join(tid[i], (void**)(res[i]));
+        pthread_join(tid[i], NULL);
 
-    //for(int i = 0; i < numThread; i++)
-    //    numWords += *res[i];
-	wordsMap sum(merge(res, numThreads));
-	wordsMap::iterator found = sum.find(string(keyWord));
+	wordsMap sum(merge(res, numThread));
+	wordsMap::iterator found = sum.find(Keyword);
+    //ofstream ofs("logfile.txt", ofstream::out);
+    //for(auto& x: sum)
+    //{
+    //    ofs<<x.first<<"\t\t"<<x.second<<endl;
+    //}
+    //ofs.close();
 	if(found != sum.end())
 		cout<<"Total number of key words is "<<found->second<<endl;
 	else
