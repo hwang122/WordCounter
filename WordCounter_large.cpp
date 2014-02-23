@@ -6,18 +6,17 @@
 #include <unordered_map>
 #include <pthread.h>
 
-#define BUFFER_SIZE 250000000
+#define BUFFER_SIZE 250000
 
 using namespace std;
 
 pthread_mutex_t streamMutex;
-pthread_mutex_t mapMutex;
-size_t position;
+long position;
 typedef unordered_map<string,int> wordsMap;
 
 typedef struct fileArg
 {
-	char *FileName;
+	ifstream *ifs;
 	wordsMap *Map;
 } FileArg;
 
@@ -36,33 +35,27 @@ wordsMap merge(wordsMap wordsCount[], int size)
 
 void *Counter(void *arg)
 {
-	FileArg *pFile = (FileArg *)arg;
-    char *FileName = pFile->FileName;
-    wordsMap *tempMap = pFile->Map;
-
-	ifstream ifs;
-	ifs.open(FileName, ifstream::in);
-	if(!ifs.is_open())
-    {
-        cerr<<"Fail to open file"<<endl;
-        exit(-1);
-    }
-
+	FileArg *pArg = (FileArg *)arg;
+    //char *FileName = pArg->FileName;
+    wordsMap *tempMap = pArg->Map;
+    ifstream *ifs = pArg->ifs;
+    
     pthread_mutex_lock(&streamMutex);
-	while(!ifs.eof())
+	while(!ifs->eof())
 	{
 		//ifs.seekg(position, ifs.beg);
-		char *file = (char*)malloc(BUFFER_SIZE);
-		ifs.seekg(position, ifs.beg);
-		ifs.read(file, BUFFER_SIZE);
+		char *file = (char*)malloc(BUFFER_SIZE+1);
+		memset(file, 0, BUFFER_SIZE+1);
+		//ifs->seekg(position, ifs->beg);
+		ifs->read(file, BUFFER_SIZE);
 		position += BUFFER_SIZE;
-
+		
 		//unlock the mutex to let other thread read file
 		pthread_mutex_unlock(&streamMutex);
 
 		//count keyword
-		char *pch;
-        char *last;
+		char *pch = NULL;
+        char *last =NULL;
         wordsMap::iterator found;
 		const char *delimiter;
         delimiter = " ,?\":;<>~`!@#^&*()_+=/\\{}[]|\n\r\v\f";
@@ -115,11 +108,18 @@ int main(int argc, char *argv[])
 	//words number
 	wordsMap res[numThread];
 	
+	ifstream ifs(FileName, ifstream::in);
+	if(!ifs.is_open())
+    {
+        cerr<<"Fail to open file"<<endl;
+        exit(-1);
+    }
+
     for(int i = 0; i < numThread; i++)
     {
     	//set arguments
     	FileArg f;
-		f.FileName = FileName;
+		f.ifs = &ifs;
 		f.Map = &res[i];
     	pthread_create(&tid[i], NULL, Counter, &f);
     }
@@ -135,5 +135,6 @@ int main(int argc, char *argv[])
 	else
 		cout<<"Key word not found!"<<endl;
 
+	ifs.close();
     return 0;
 }
