@@ -5,19 +5,14 @@
 #include <ctime>
 #include <unordered_map>
 #include <pthread.h>
-#include "Mstrtok.h"
-
-#define BUFFER_SIZE 25000
+#include <cmath>
 
 using namespace std;
-
-pthread_mutex_t streamMutex;
-//long position;
 typedef unordered_map<string,int> wordsMap;
 
 typedef struct fileArg
 {
-	ifstream *ifs;
+	char *file;
 	wordsMap *Map;
 } FileArg;
 
@@ -41,70 +36,18 @@ void *Counter(void *arg)
 {
 	FileArg *pArg = (FileArg *)arg;
     wordsMap *tempMap = pArg->Map;
+    char *file = pArg->file;
     const char *delimiter;
     delimiter = " \"\\,?:;<>~`!@#^&*()_+=/{}[]|\n\r\v\f";
-    vector<string> words;
 
-    pthread_mutex_lock(&streamMutex);
-    ifstream *ifs = pArg->ifs;
-	while(!ifs->eof())
-	{
-		char *file = new char[BUFFER_SIZE+1];
-		//ifs.seekg(position, ifs.beg);
-		memset(file, 0, BUFFER_SIZE+1);
-		//ifs->seekg(position, ifs->beg);
-		ifs->read(file, BUFFER_SIZE);
-		//position += BUFFER_SIZE;
-		
-		//unlock the mutex to let other thread read file
-		pthread_mutex_unlock(&streamMutex);
-
-		MStrTok(file, delimiter, strlen(file), strlen(delimiter), words);
-		vector<string>::iterator iter;
-	    for(iter = words.begin(); iter != words.end(); iter++)
-	    {
-	        (*tempMap)[*iter]++;
-	    }
-	    words.clear();
-	    /**
-		//count keyword
-		char *pch = NULL;
-        char *last =NULL;
-        //wordsMap::iterator found;
-
-        //strtok is not thread safe!
-		pch = strtok_r(file, delimiter, &last);
-		while(pch != NULL)
-		{
-			string str = string(pch);
-			(*tempMap)[str]++;
-			//memset(pch, 0, 100);
-			/*
-            found = tempMap->find(str);
-
-            if(found == tempMap->end())
-            {
-                //not found
-                pair<string, int> tempPair (str, 1);
-                tempMap->insert(tempPair);
-            }
-            else
-            {
-                //found
-                found->second++;
-            }
-            
-			
-            pch = strtok_r(NULL, delimiter, &last);
-		}
-		**/
-		delete[] file;
-		file = NULL;
-		//lock to handle next file
-		pthread_mutex_lock(&streamMutex);
-	}
-    //all files have been handled, unlock
-    pthread_mutex_unlock(&streamMutex);
+    char *pch;
+    char *last;
+    pch = strtok_r(file, delimiter, &last);
+    while(pch != NULL)
+    {
+    	(*tempMap)[pch]++;
+    	pch = strtok_r(NULL, delimiter, &last);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -120,23 +63,42 @@ int main(int argc, char *argv[])
 	int numThread = atoi(argv[3]);
 	
 	pthread_t tid[numThread];
-	pthread_mutex_init(&streamMutex, NULL);
-	//position = 0;
 	//words number
 	wordsMap res[numThread];
-	FileArg f[numThread];
-	
+    FileArg f[numThread];
+
 	ifstream ifs(FileName, ifstream::in);
 	if(!ifs.is_open())
     {
         cerr<<"Fail to open file"<<endl;
         exit(-1);
     }
+    //tell file's length
+   	ifs.seekg(0, ifs.end);
+   	long long length = ifs.tellg();
+   	//unsigned int length = ifs.tellg();
+   	ifs.seekg(0, ifs.beg);
+
+   	//malloc memory to store file
+   	char **file = (char**)malloc(sizeof(char*) * numThread);
+   	for(int i = 0; i < numThread; i++)
+   	{
+   		long long temp = (long long)ceil((double)length/numThread);
+   		long long s_length = \
+   		(temp < (length - temp * i))? temp : (length - temp * i);
+
+   		//unsigned int temp = (unsigned int)ceil((double)length/numThread);
+   		//unsigned int s_length = \
+   		//(temp < (length - temp * i))? temp : (length - temp * i);
+   		file[i] = (char*)malloc(sizeof(char) * s_length);
+   		memset(file[i], 0, s_length);
+   		ifs.read(file[i], s_length);
+   	}
 
     for(int i = 0; i < numThread; i++)
     {
     	//set arguments
-		f[i].ifs = &ifs;
+		f[i].file = file[i];
 		f[i].Map = &res[i];
     	pthread_create(&tid[i], NULL, Counter, &f[i]);
     }
@@ -153,5 +115,10 @@ int main(int argc, char *argv[])
 		cout<<"Key word not found!"<<endl;
 
 	ifs.close();
+	ifs.clear();
+	for(int i = 0; i < numThread; i++)
+		free(file[i]);
+	free(file);
+
     return 0;
 }
