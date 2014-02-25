@@ -6,12 +6,12 @@
 #include <unordered_map>
 #include <pthread.h>
 
-#define BUFFER_SIZE 250000
+#define BUFFER_SIZE 250000000
 
 using namespace std;
 
 pthread_mutex_t streamMutex;
-long position;
+//long position;
 typedef unordered_map<string,int> wordsMap;
 
 typedef struct fileArg
@@ -23,11 +23,12 @@ typedef struct fileArg
 wordsMap merge(wordsMap wordsCount[], int size)
 {
 	wordsMap temp(wordsCount[0]);
+	wordsMap::iterator iter;
 	for(int i = 1; i < size; i++)
 	{
-		for(auto& x: wordsCount[i])
+		for(iter = wordsCount[i].begin(); iter != wordsCount[i].end(); iter++)
 		{
-			temp[x.first] += x.second;
+			temp[iter->first] += iter->second;
 		}
 	}
 	return temp;
@@ -48,7 +49,7 @@ void *Counter(void *arg)
 		memset(file, 0, BUFFER_SIZE+1);
 		//ifs->seekg(position, ifs->beg);
 		ifs->read(file, BUFFER_SIZE);
-		position += BUFFER_SIZE;
+		//position += BUFFER_SIZE;
 		
 		//unlock the mutex to let other thread read file
 		pthread_mutex_unlock(&streamMutex);
@@ -64,12 +65,15 @@ void *Counter(void *arg)
 		pch = strtok_r(file, delimiter, &last);
 		while(pch != NULL)
 		{
-            found = tempMap->find(pch);
-
+			string pstr = string(pch);
+			
+			(*tempMap)[pstr]++;
+			/**
+            found = tempMap->find(pstr);
             if(found == tempMap->end())
             {
                 //not found
-                pair<string, int> tempPair (pch, 1);
+                pair<string, int> tempPair (pstr, 1);
                 tempMap->insert(tempPair);
             }
             else
@@ -77,6 +81,7 @@ void *Counter(void *arg)
                 //found
                 found->second++;
             }
+			**/
 
             pch = strtok_r(NULL, delimiter, &last);
 		}
@@ -104,7 +109,7 @@ int main(int argc, char *argv[])
 	
 	pthread_t tid[numThread];
 	pthread_mutex_init(&streamMutex, NULL);
-	position = 0;
+	//position = 0;
 	//words number
 	wordsMap res[numThread];
 	
