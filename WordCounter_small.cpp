@@ -2,7 +2,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
+#include <sys/time.h>
 #include <queue>
 #include <unordered_map>
 #include <dirent.h>
