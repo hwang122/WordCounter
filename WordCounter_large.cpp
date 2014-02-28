@@ -2,12 +2,12 @@
 #include <fstream>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
+#include <sys/time.h>
 #include <unordered_map>
 #include <pthread.h>
-#include "Mstrtok.h"
+//#include "Mstrtok.h"
 
-#define BUFFER_SIZE 25000
+#define BUFFER_SIZE 250000000
 
 using namespace std;
 
@@ -43,7 +43,7 @@ void *Counter(void *arg)
     wordsMap *tempMap = pArg->Map;
     const char *delimiter;
     delimiter = " \"\\,?:;<>~`!@#^&*()_+=/{}[]|\n\r\v\f";
-    vector<string> words;
+    //vector<string> words;
 
     pthread_mutex_lock(&streamMutex);
     ifstream *ifs = pArg->ifs;
@@ -58,7 +58,8 @@ void *Counter(void *arg)
 		
 		//unlock the mutex to let other thread read file
 		pthread_mutex_unlock(&streamMutex);
-
+	
+		/**
 		MStrTok(file, delimiter, strlen(file), strlen(delimiter), words);
 		vector<string>::iterator iter;
 	    for(iter = words.begin(); iter != words.end(); iter++)
@@ -66,7 +67,8 @@ void *Counter(void *arg)
 	        (*tempMap)[*iter]++;
 	    }
 	    words.clear();
-	    /**
+		**/
+	    
 		//count keyword
 		char *pch = NULL;
         char *last =NULL;
@@ -78,7 +80,6 @@ void *Counter(void *arg)
 		{
 			string str = string(pch);
 			(*tempMap)[str]++;
-			//memset(pch, 0, 100);
 			/*
             found = tempMap->find(str);
 
@@ -93,11 +94,10 @@ void *Counter(void *arg)
                 //found
                 found->second++;
             }
-            
-			
+            **/
             pch = strtok_r(NULL, delimiter, &last);
 		}
-		**/
+		
 		delete[] file;
 		file = NULL;
 		//lock to handle next file
@@ -119,6 +119,10 @@ int main(int argc, char *argv[])
 	char *Keyword = argv[2];
 	int numThread = atoi(argv[3]);
 	
+	//variables to count the time
+	struct timeval etstart, etstop;
+	unsigned long long usecstart, usecstop;
+	
 	pthread_t tid[numThread];
 	pthread_mutex_init(&streamMutex, NULL);
 	//position = 0;
@@ -132,7 +136,10 @@ int main(int argc, char *argv[])
         cerr<<"Fail to open file"<<endl;
         exit(-1);
     }
-
+	
+	//start time
+	gettimeofday(&etstart, NULL);
+	
     for(int i = 0; i < numThread; i++)
     {
     	//set arguments
@@ -151,7 +158,15 @@ int main(int argc, char *argv[])
 		cout<<"Total number of key words is "<<found->second<<endl;
 	else
 		cout<<"Key word not found!"<<endl;
-
+	
+	//end time
+	gettimeofday(&etstop, NULL);
+	usecstart = (unsigned long long)etstart.tv_sec * 1000000 + etstart.tv_usec;
+	usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
+	
+	float elapsed_time = (float)(usecstop - usecstart) / 1000;
+	printf("Elapsed time %.3f ms\n", elapsed_time);
+	
 	ifs.close();
     return 0;
 }

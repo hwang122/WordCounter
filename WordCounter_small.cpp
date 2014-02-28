@@ -147,14 +147,21 @@ int main(int argc, char *argv[])
 	char *Keyword = argv[2];
 	int numThread = atoi(argv[3]);
     
+	//variables to count the time
+	struct timeval etstart, etstop;
+	unsigned long long usecstart, usecstop;
+	
 	pthread_t tid[numThread];
 	pthread_mutex_init(&queueMutex, NULL);
 	//words number
 	wordsMap res[numThread];
-
+	
+	//start time
+	gettimeofday(&etstart, NULL);
+	
     //init file queue
     initPath(DirName);
-
+	
     for(int i = 0; i < numThread; i++)
         pthread_create(&tid[i], NULL, Counter, &res[i]);
 
@@ -163,16 +170,19 @@ int main(int argc, char *argv[])
 
 	wordsMap sum(merge(res, numThread));
 	wordsMap::iterator found = sum.find(Keyword);
-    //ofstream ofs("logfile.txt", ofstream::out);
-    //for(auto& x: sum)
-    //{
-    //    ofs<<x.first<<"\t\t"<<x.second<<endl;
-    //}
-    //ofs.close();
+	
 	if(found != sum.end())
 		cout<<"Total number of key words is "<<found->second<<endl;
 	else
 		cout<<"Key word not found!"<<endl;
+		
+	//end time
+	gettimeofday(&etstop, NULL);
+	usecstart = (unsigned long long)etstart.tv_sec * 1000000 + etstart.tv_usec;
+	usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
+	
+	float elapsed_time = (float)(usecstop - usecstart) / 1000;
+	printf("Elapsed time %.3f ms", elapsed_time);
 
     return 0;
 }
