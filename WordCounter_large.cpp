@@ -15,8 +15,10 @@ pthread_mutex_t streamMutex;
 //long position;
 typedef unordered_map<string,int> wordsMap;
 
+//argument of each thread
 typedef struct fileArg
 {
+	//file handler
 	ifstream *ifs;
 	wordsMap *Map;
 } FileArg;
@@ -44,7 +46,8 @@ void *Counter(void *arg)
     const char *delimiter;
     delimiter = " \"\\,?:;<>~`!@#^&*()_+=/{}[]|\n\r\v\f";
     //vector<string> words;
-
+	
+	//lock thread to confirm only one thread read the file
     pthread_mutex_lock(&streamMutex);
     ifstream *ifs = pArg->ifs;
 	while(!ifs->eof())
@@ -53,6 +56,7 @@ void *Counter(void *arg)
 		//ifs.seekg(position, ifs.beg);
 		memset(file, 0, BUFFER_SIZE+1);
 		//ifs->seekg(position, ifs->beg);
+		//get file content
 		ifs->read(file, BUFFER_SIZE);
 		//position += BUFFER_SIZE;
 		
@@ -150,10 +154,12 @@ int main(int argc, char *argv[])
 
     for(int i = 0; i < numThread; i++)
         pthread_join(tid[i], NULL);
-
+	
+	//merge maps from each thread
     wordsMap sum(merge(res, numThread));
 	wordsMap::iterator found = sum.find(Keyword);
 
+	cout<<"Map's size: "<<sum.size()<<endl;
     if(found != sum.end())
 		cout<<"Total number of key words is "<<found->second<<endl;
 	else

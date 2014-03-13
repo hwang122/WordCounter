@@ -10,35 +10,40 @@
 
 using namespace std;
 
+//data structure to store the filename
 queue<string> FilePath;
 pthread_mutex_t queueMutex;
 typedef unordered_map<string,int> wordsMap;
 
-
+//merge several maps together
 wordsMap merge(wordsMap wordsCount[], int size)
 {
 	wordsMap temp(wordsCount[0]);
+	wordsMap::iterator iter;
 	for(int i = 1; i < size; i++)
 	{
-		for(auto& x: wordsCount[i])
+		for(iter = wordsCount[i].begin(); iter != wordsCount[i].end(); iter++)
 		{
-			temp[x.first] += x.second;
+			temp[iter->first] += iter->second;
 		}
 	}
 	return temp;
 }
 
+//initialize filename list
 void initPath(char *DirName)
 {
     DIR *dir;
     struct dirent *ptr;
-
+	
+	//open directory
     if((dir = opendir(DirName)) == NULL)
     {
         cerr<<"Fail to open directory"<<endl;
         exit(-1);
     }
-
+	
+	//store filenames into queue
     while((ptr = readdir(dir)) != NULL)
     {
         if(strcmp(ptr->d_name,".")==0 || strcmp(ptr->d_name,"..")==0)
@@ -57,22 +62,26 @@ void initPath(char *DirName)
     closedir(dir);
 }
 
+//parallel code execute by each thread
 void *Counter(void *arg)
 {
 	wordsMap *tempMap = (wordsMap *)arg;
     fstream ifs;
+	//lock to ensure only one thread is operating the queue
+	//and read files
     pthread_mutex_lock(&queueMutex);
-
+	
+	//there is file hasn't been read
     while(!FilePath.empty())
     {
         char *path = (char*)malloc(sizeof(char)*100);
         memset(path, 0, 100);
+		//get filename
         strcpy(path, FilePath.front().c_str());
         //cout<<path<<endl;
         FilePath.pop();
 
         ifs.open(path, ifstream::in);
-
         if(!ifs.is_open())
         {
             cerr<<"Fail to open file"<<endl;
@@ -84,6 +93,7 @@ void *Counter(void *arg)
         ifs.seekg(0, ifs.beg);
 
         char *file = (char*)malloc(sizeof(char)*(length+1));
+		//read file into buffer
         ifs.read(file, length);
 
         ifs.close();
@@ -167,7 +177,8 @@ int main(int argc, char *argv[])
 
     for(int i = 0; i < numThread; i++)
         pthread_join(tid[i], NULL);
-
+	
+	//merge the maps
 	wordsMap sum(merge(res, numThread));
 	wordsMap::iterator found = sum.find(Keyword);
 	
@@ -182,7 +193,7 @@ int main(int argc, char *argv[])
 	usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
 	
 	float elapsed_time = (float)(usecstop - usecstart) / 1000;
-	printf("Elapsed time %.3f ms", elapsed_time);
+	printf("Elapsed time %.3f ms\n", elapsed_time);
 
     return 0;
 }
